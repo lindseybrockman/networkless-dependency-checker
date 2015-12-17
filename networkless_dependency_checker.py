@@ -14,6 +14,7 @@ except ImportError:
 
 class NetworklessDependencyFinder(object):
     def __init__(self, requirements_file='requirements.txt'):
+        self.exit_code = 0
         self.requirements_file = requirements_file
         self.project_requirements = self.get_project_requirements()
 
@@ -27,13 +28,14 @@ class NetworklessDependencyFinder(object):
         return requirements
 
     def run(self):
-        all_requirements_fufilled = True
         for line_number, line in enumerate(self.project_requirements, start=1):
             if self.is_valid_requirement(line):
                 requirement = Requirement.parse(line)
                 message = self._run(requirement, line_number)
                 if message:
                     sys.stderr.write(message)
+
+        sys.exit(self.exit_code)
 
     @classmethod
     def is_valid_requirement(cls, requirement):
@@ -49,12 +51,14 @@ class NetworklessDependencyFinder(object):
         try:
             get_distribution(parsed_requirement)
         except DistributionNotFound:
+            self.exit_code = 1
             message = '[ERROR] {} line {}: {} not found on system\n'.format(
                 self.requirements_file,
                 line_number,
                 parsed_requirement
             )
         except VersionConflict:
+            self.exit_code = 1
             exc_type, conflicting_version, traceback = sys.exc_info()
             message = '[ERROR] {} line {}: {} is required but version {} is available \n'.format(
                 self.requirements_file,
@@ -64,7 +68,7 @@ class NetworklessDependencyFinder(object):
             )
 
         if self._requirement_is_unpinned(parsed_requirement):
-            message += '[WARNING] {} line {}: {} requirement is not pinned. >:(\n'.format(
+            message += '[WARNING] {} line {}: {} requirement is not pinned. \n'.format(
                 self.requirements_file,
                 line_number,
                 parsed_requirement
